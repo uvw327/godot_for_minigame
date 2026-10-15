@@ -17,6 +17,11 @@ export_presets.cfg
 .DS_Store
 Thumbs.db
 
+# Godot Mini Game export dock config (keep the example, ignore the real one)
+.minigame/*
+!.minigame/.gdignore
+!.minigame/export.cfg.example
+
 # Build output
 /build/
 /dist/

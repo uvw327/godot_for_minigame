@@ -2,6 +2,7 @@
 extends VBoxContainer
 
 const Exporter = preload("res://addons/godot_mini_game/exporter.gd")
+const Persistence = preload("res://addons/godot_mini_game/core/persistence.gd")
 
 const PLATFORM_OPTIONS := [
 	["微信小游戏", "wechat"],
@@ -38,6 +39,7 @@ var _active_exporter: RefCounted
 
 
 func _ready() -> void:
+	Persistence.ensure_project_files()
 	platform_option.clear()
 	for option in PLATFORM_OPTIONS:
 		platform_option.add_item(str(option[0]))
@@ -50,6 +52,7 @@ func _ready() -> void:
 
 	_refresh_presets()
 	_refresh_template_status()
+	_restore_persisted_state()
 
 	browse_btn.pressed.connect(_on_browse)
 	export_btn.pressed.connect(_on_export)
@@ -64,6 +67,45 @@ func _ready() -> void:
 	template_file_dialog.file_selected.connect(_on_template_file_selected)
 
 	_log("[b]小游戏导出插件已就绪[/b]")
+	if not Persistence.load_error.is_empty():
+		_log("[color=yellow]⚠ 无法读取持久化配置，使用默认值: %s[/color]" % Persistence.load_error)
+
+
+## Reads `.minigame/export.cfg` and restores the dock controls from it.
+## Missing or invalid fields fall back to the tscn defaults. The preset
+## name is validated against the live preset list; the output directory is
+## re-validated with `OutputGuard` so a stale or unsafe path never leaks
+## into an export.
+func _restore_persisted_state() -> void:
+	var project_root := ProjectSettings.globalize_path("res://")
+	var state: Dictionary = Persistence.load_project_state()
+	if state.get(Persistence.KEY_PLATFORM) != "":
+		_select_option(platform_option, str(state.get(Persistence.KEY_PLATFORM, "")))
+	appid_input.text = str(state.get(Persistence.KEY_APPID, ""))
+	if state.get(Persistence.KEY_ORIENTATION) != "":
+		_select_option(orientation_option, str(state.get(Persistence.KEY_ORIENTATION, "")))
+	timeout_input.value = float(state.get(Persistence.KEY_TIMEOUT, 600.0))
+	var persisted_output_dir: String = str(state.get(Persistence.KEY_OUTPUT_DIR, ""))
+	if not persisted_output_dir.is_empty():
+		var absolute_output_dir: String = Exporter.validate_persisted_output_dir(
+			persisted_output_dir, project_root)
+		if not absolute_output_dir.is_empty():
+			output_path.text = absolute_output_dir
+		else:
+			_log("[color=yellow]⚠ 持久化的输出目录已失效，请重新选择[/color]")
+	# The preset restore happens after _refresh_presets has populated the
+	# option list, so it can select by name. An empty selection means the
+	# persisted preset no longer exists.
+	var persisted_preset: String = str(state.get(Persistence.KEY_PRESET, ""))
+	if not persisted_preset.is_empty():
+		_select_option(preset_option, persisted_preset)
+
+
+func _select_option(option: OptionButton, value: String) -> void:
+	for index in range(option.item_count):
+		if str(option.get_item_metadata(index)) == value:
+			option.select(index)
+			return
 
 
 func _refresh_all() -> void:
@@ -215,6 +257,7 @@ func _on_export() -> void:
 	if err == OK:
 		_log("[color=green][b]导出成功！[/b] → %s[/color]" % output_dir)
 		_show_toast("导出成功！", "小游戏已导出到:\n%s" % output_dir)
+		_persist_current_state()
 	elif err == ERR_SKIP:
 		_log("[color=yellow]导出已取消[/color]")
 	elif err == ERR_TIMEOUT:
@@ -245,6 +288,30 @@ func _set_export_busy(busy: bool) -> void:
 func _exit_tree() -> void:
 	if _active_exporter:
 		_active_exporter.cancel_export()
+	# Save the current UI values so the next editor session restores them.
+	# This is best-effort: if the write fails, the user loses nothing because
+	# a successful export already saved the state.
+	_persist_current_state()
+
+
+## Snapshots the current dock values and writes them to
+## `.minigame/export.cfg`. The output directory is stored as a
+## project-relative path so the file stays portable across machines; the
+## other fields are plain strings.
+func _persist_current_state() -> void:
+	var project_root := ProjectSettings.globalize_path("res://")
+	var state: Dictionary = {
+		Persistence.KEY_PLATFORM: str(platform_option.get_item_metadata(platform_option.selected)),
+		Persistence.KEY_APPID: appid_input.text.strip_edges(),
+		Persistence.KEY_ORIENTATION: str(orientation_option.get_item_metadata(orientation_option.selected)),
+		Persistence.KEY_PRESET: str(preset_option.get_item_metadata(preset_option.selected)),
+		Persistence.KEY_OUTPUT_DIR: Persistence.relativize_output_dir(
+			output_path.text.strip_edges(), project_root),
+		Persistence.KEY_TIMEOUT: timeout_input.value,
+	}
+	var err: Error = Persistence.save_project_state(state)
+	if err != OK:
+		_log("[color=yellow]⚠ 无法保存导出配置: %s[/color]" % error_string(err))
 
 
 ## Pops a one-shot modal dialog. The dialog is parented to the editor's base

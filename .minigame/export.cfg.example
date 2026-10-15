@@ -1,0 +1,23 @@
+; Godot Mini Game export configuration example
+; Copy this file to `.minigame/export.cfg` (same folder) to persist dock settings.
+;
+; The exporter reads and writes `.minigame/export.cfg` automatically:
+;   - On dock open it restores the fields below.
+;   - On successful export it saves the current UI values.
+;
+; All paths are relative to the Godot project root.
+; The exporter validates the output directory before reusing it: a directory
+; inside the project, or a directory that fails OutputGuard, falls back to
+; empty and the user re-picks it in the dock.
+;
+; This file is intended to be committed to git (except `appid`, which may be
+; a sensitive client key for TikTok). Add `.minigame/export.cfg` to
+; `.gitignore` if you prefer to keep it local.
+
+[export]
+platform="wechat"
+appid=""
+orientation="portrait"
+preset="MiniGame"
+output_dir=""
+timeout_seconds=600.0

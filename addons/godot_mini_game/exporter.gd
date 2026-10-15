@@ -493,6 +493,34 @@ static func _editor_commit_string() -> String:
 	return str(version_info.get("hash", ""))
 
 
+## Resolves a persisted output-directory value and checks it with
+## `OutputGuard`. Returns the absolute path when the value is safe, or an
+## empty string when the value is empty, unresolvable, or unsafe.
+##
+## `persisted_value` is a project-relative path written by
+## `Persistence.relativize_output_dir`. `project_root` is typically
+## `ProjectSettings.globalize_path("res://")`.
+static func validate_persisted_output_dir(
+	persisted_value: String,
+	project_root: String,
+) -> String:
+	var text := persisted_value.strip_edges()
+	if text.is_empty():
+		return ""
+	var candidate := text
+	if not candidate.is_absolute_path():
+		candidate = project_root.simplify_path().path_join(candidate)
+	var check := OutputGuard.inspect(
+		candidate,
+		project_root,
+		MANAGED_FILES,
+		MANAGED_DIRS,
+	)
+	if not bool(check.get("ok", false)):
+		return ""
+	return str(check.get("path", ""))
+
+
 # ─── Public entry point ────────────────────────────────────────────
 
 func export_mini_game(

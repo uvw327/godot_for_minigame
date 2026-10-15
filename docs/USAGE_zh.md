@@ -131,6 +131,36 @@ Dock 自动扫描 `export_presets.cfg` 里的所有预设，选择第 3 步创�
 受管目录。无有效 manifest 的非空目录、被修改的受管产物，或受管目录内未列出的
 内容都会被拒绝，不会被自动接管或覆盖。其它顶层名称下的旁路文件会保留。
 
+#### 持久化导出设置（`.minigame/export.cfg`）
+
+Dock 现在会记住上次的配置：打开时从项目内的配置文件恢复平台、AppID、屏幕方向、
+预设、输出目录和超时；导出成功时（以及关闭 Dock 时）把当前值写回。文件位于项目
+根目录下的 `.minigame/export.cfg`。
+
+```
+.minigame/
+├── .gdignore            # 让 Godot 导入器 / PCK 打包器跳过
+├── export.cfg           # 实际配置（首次导出时创建）
+└── export.cfg.example   # 带注释的模板，可复制 / 提交
+```
+
+- **为什么需要 `.gdignore`？** Godot 的 PCK 打包器会遍历资源树；文件夹级的
+  `.gdignore` 会把整个 `.minigame/` 子树标记为「非项目资源」，所以 `export.cfg`
+  永远不会被打进导出的游戏里。这与既有的
+  `addons/godot_mini_game/engine/.gdignore` 约定一致。
+- **Git 行为。** 默认情况下 `.minigame/` 被 git 忽略（见项目 `.gitignore`）。
+  `.gdignore` 与 `export.cfg.example` 例外，会随仓库一起分发。实际的
+  `export.cfg` 有意保持本地：它可能包含团队专属的 AppID 或输出路径，不同开发者
+  的设置可能不同。
+- **可移植性。** 当 `output_dir` 位于项目根目录内时，以项目相对路径存储；否则
+  以绝对路径存储。在另一台机器重新打开 Dock 时，相对路径会针对新的项目根重新
+  解析，而绝对路径会再次通过 `OutputGuard` 校验；若目录不安全，会被静默丢弃
+  （并给出警告）。
+- **失败放行。** 配置缺失或不可读永远不会阻塞导出：Dock 直接回退到内置默认值。
+  写入失败只在日志中提示，不会导致导出失败。
+
+要重置所有 Dock 设置，删除 `.minigame/export.cfg` 并重新打开编辑器。
+
 ### 导出 Export
 
 点击后，Dock 日志区会输出七个事务阶段：

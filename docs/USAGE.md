@@ -138,6 +138,45 @@ folder, a modified managed artifact, or unlisted content inside an exporter-owne
 directory is rejected instead of being adopted or overwritten. Unrelated files
 under other top-level names are preserved.
 
+#### Persistent export settings (`.minigame/export.cfg`)
+
+The dock no longer forgets itself: on open it restores the last-used platform,
+App ID, orientation, preset, output directory, and timeout from a
+project-local config file; on successful export (and when the dock is closed)
+it saves the current values back. The file lives at
+`.minigame/export.cfg` in the project root.
+
+```
+.minigame/
+├── .gdignore            # keeps Godot's importer / PCK packer away
+├── export.cfg           # the live config (created on first export)
+└── export.cfg.example   # a commented template you can copy / commit
+```
+
+- **Why `.gdignore`?** The Godot PCK packer walks the resource tree; a
+  `.gdignore` at the folder level marks the whole `.minigame/` subtree as
+  "not project resources", so `export.cfg` is never packed into an exported
+  game. This mirrors the existing `addons/godot_mini_game/engine/.gdignore`
+  convention.
+- **Git behaviour.** By default `.minigame/` is git-ignored (see the
+  project's `.gitignore`). The `.gdignore` and `export.cfg.example` are
+  un-ignored so they travel with the repo. The live `export.cfg` is
+  intentionally local: it may contain a team-specific App ID or output
+  path, and two developers' settings can differ.
+- **Portability.** The `output_dir` field is stored as a project-relative
+  path when it sits inside the project root; otherwise it is stored as an
+  absolute path. When the dock reopens on another machine, a relative path
+  re-resolves against the new project root, while an absolute path is
+  re-validated against `OutputGuard` and silently dropped (with a warning)
+  if the path is no longer safe — for example it now sits inside the project
+  or holds unmanaged content.
+- **Failure-open.** A missing or unreadable config file never blocks an
+  export: the dock simply falls back to the built-in defaults. A write
+  failure is reported in the log but does not fail the export.
+
+To reset all dock settings, delete `.minigame/export.cfg` and reopen the
+editor.
+
 ### Export
 
 Click — the dock log shows seven transactional stages:
