@@ -578,6 +578,8 @@ func _export_mini_game_impl(
 		_log("[color=red]输出目录预检失败: %s[/color]" % output_check.get("error", ""))
 		return ERR_INVALID_PARAMETER
 	var output_path := str(output_check.path)
+	if bool(output_check.get("dirty", false)):
+		_log("[color=yellow]检测到输出目录已被外部工具改动（如微信开发者工具改写 project.config.json），将继续并覆盖受管理文件[/color]")
 
 	var err := _validate_export_preset(preset_name)
 	if err != OK:

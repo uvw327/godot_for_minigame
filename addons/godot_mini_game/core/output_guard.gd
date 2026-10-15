@@ -60,19 +60,30 @@ static func inspect(
 			"legacy_owned": false,
 			"state_token": "missing",
 			"error": "",
+			"dirty": false,
 		}
 
 	var sentinel := output.path_join(OWNERSHIP_FILE)
 	var ownership := _validate_ownership_manifest(
 		output, sentinel, managed_files, managed_dirs)
 	if bool(ownership.get("valid", false)):
+		# "dirty" means the manifest still proves we own these paths, but one or
+		# more managed files were altered by something else (typically the WeChat
+		# DevTools rewriting project.config.json). Ownership stands; the token
+		# records dirtiness so a change *between* preflight and publish still
+		# aborts, while an already-dirty directory can be replaced cleanly.
+		var dirty := bool(ownership.get("dirty", false))
 		return {
 			"ok": true,
 			"path": output,
 			"owned": true,
 			"legacy_owned": false,
-			"state_token": "owned:" + str(ownership.get("manifest_sha256", "")),
+			"state_token": "owned:%s%s" % [
+				str(ownership.get("manifest_sha256", "")),
+				":dirty" if dirty else "",
+			],
 			"error": "",
+			"dirty": dirty,
 		}
 	if FileAccess.file_exists(sentinel):
 		return _result(
@@ -97,6 +108,7 @@ static func inspect(
 			"legacy_owned": false,
 			"state_token": "empty",
 			"error": "",
+			"dirty": false,
 		}
 	if conflicts.is_empty():
 		return _result(false, "Existing output directory must be empty or contain a valid ownership manifest")
@@ -179,13 +191,20 @@ static func _validate_ownership_manifest(
 		):
 			return _ownership_result(false, "unexpected artifact path: %s" % artifact_path)
 
+	# Content drift (missing files, changed hashes) no longer revokes ownership.
+	# The manifest's purpose is to declare *which* paths we may replace, not to
+	# freeze their bytes: external tooling legitimately rewrites managed files
+	# between exports. Such drift is recorded as "dirty" and the paths are still
+	# replaced transactionally.
+	var dirty := false
 	for relative_path_value in required_set.keys():
 		var relative_path: String = relative_path_value
 		var absolute_path := output.path_join(relative_path)
 		if _path_has_link(output, relative_path):
 			return _ownership_result(false, "managed paths must not contain links: %s" % relative_path)
 		if not FileAccess.file_exists(absolute_path):
-			return _ownership_result(false, "required file is missing: %s" % relative_path)
+			dirty = true
+			continue
 		if relative_path == OWNERSHIP_FILE:
 			continue
 		var expected_value: Variant = output_artifacts.get(relative_path, {})
@@ -205,7 +224,7 @@ static func _validate_ownership_manifest(
 			or int(size_value) != int(actual.get("size", -1))
 			or expected_hash.to_lower() != str(actual.get("sha256", ""))
 		):
-			return _ownership_result(false, "artifact hash or size changed: %s" % relative_path)
+			dirty = true
 
 	if not _managed_tree_matches(
 		output, required_set, allowed_directories, managed_files, managed_dirs):
@@ -225,7 +244,7 @@ static func _validate_ownership_manifest(
 	var manifest_sha_after := FileAccess.get_sha256(manifest_path).to_lower()
 	if manifest_sha_before.is_empty() or manifest_sha_before != manifest_sha_after:
 		return _ownership_result(false, "manifest changed during inspection")
-	return _ownership_result(true, "", manifest_sha_after)
+	return _ownership_result(true, "", manifest_sha_after, dirty)
 
 
 static func _has_valid_metadata(manifest: Dictionary) -> bool:
@@ -438,11 +457,16 @@ static func _is_positive_integer(value: Variant) -> bool:
 
 
 static func _ownership_result(
-	valid: bool, error: String, manifest_sha256: String = "") -> Dictionary:
+	valid: bool,
+	error: String,
+	manifest_sha256: String = "",
+	dirty: bool = false,
+) -> Dictionary:
 	return {
 		"valid": valid,
 		"error": error,
 		"manifest_sha256": manifest_sha256,
+		"dirty": dirty,
 	}
 
 
@@ -524,4 +548,5 @@ static func _result(ok: bool, error: String) -> Dictionary:
 		"legacy_owned": false,
 		"state_token": "",
 		"error": error,
+		"dirty": false,
 	}

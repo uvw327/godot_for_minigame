@@ -305,12 +305,20 @@ func _init() -> void:
 	var tampered_before := OutputGuard.inspect(
 		tampered_output, project_root, Exporter.MANAGED_FILES, Exporter.MANAGED_DIRS)
 	_assert_true(bool(tampered_before.ok), "a complete manifest should establish ownership")
+	_assert_true(
+		not bool(tampered_before.get("dirty", true)),
+		"an untouched owned output must not be dirty",
+	)
 	_write(tampered_output.path_join("game.js"), "changed after preflight\n")
 	var tampered_after := OutputGuard.inspect(
 		tampered_output, project_root, Exporter.MANAGED_FILES, Exporter.MANAGED_DIRS)
 	_assert_true(
-		not bool(tampered_after.ok),
-		"managed artifact changes must invalidate the ownership snapshot",
+		bool(tampered_after.ok) and bool(tampered_after.get("dirty", false)),
+		"external managed-file drift must keep ownership but mark it dirty",
+	)
+	_assert_true(
+		str(tampered_after.state_token) != str(tampered_before.state_token),
+		"dirtiness must change the state token so in-flight drift still aborts",
 	)
 	var tampered_stage := _root.path_join("tampered-stage")
 	_make_valid_stage(tampered_stage, "douyin")
@@ -327,6 +335,45 @@ func _init() -> void:
 	_assert_true(
 		_read(tampered_output.path_join("game.js")) == "changed after preflight\n",
 		"state revalidation must preserve the tampered output",
+	)
+
+	# The WeChat DevTools scenario: the tool rewrites managed files *before* the
+	# next export. Ownership survives the edit as a dirty state, and a normal
+	# re-export replaces the managed paths without any manual cleanup.
+	var dirty_output := _root.path_join("preexisting-dirty-output")
+	_make_valid_stage(dirty_output, "wechat")
+	_write(dirty_output.path_join("game.js"), "tweaked-in-devtools\n")
+	_write(
+		dirty_output.path_join("project.config.json"),
+		"{\"setting\":{\"rewritten\":true}}\n",
+	)
+	var dirty_before := OutputGuard.inspect(
+		dirty_output, project_root, Exporter.MANAGED_FILES, Exporter.MANAGED_DIRS)
+	_assert_true(
+		bool(dirty_before.ok) and bool(dirty_before.get("dirty", false)),
+		"external edits to managed files must keep the output owned but dirty",
+	)
+	var dirty_stage := _root.path_join("preexisting-dirty-stage")
+	_make_valid_stage(dirty_stage, "wechat")
+	var dirty_publish_err := exporter._publish_staging(
+		dirty_stage, dirty_output, "wechat", str(dirty_before.state_token))
+	_assert_true(
+		dirty_publish_err == OK,
+		"an already-dirty owned output must be re-exportable without manual cleanup",
+	)
+	_assert_true(
+		_read(dirty_output.path_join("game.js")) == "new\n",
+		"re-exporting a dirty output must refresh its managed files",
+	)
+	_assert_true(
+		_read(dirty_output.path_join("project.config.json")) == _project_config(),
+		"re-exporting a dirty output must restore the generated project config",
+	)
+	var rebuilt_check := OutputGuard.inspect(
+		dirty_output, project_root, Exporter.MANAGED_FILES, Exporter.MANAGED_DIRS)
+	_assert_true(
+		bool(rebuilt_check.ok) and not bool(rebuilt_check.get("dirty", true)),
+		"a re-exported output must be owned and clean again",
 	)
 
 	var failed_output := _root.path_join("failed-output")

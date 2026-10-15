@@ -133,10 +133,16 @@ The dock scans `export_presets.cfg` and lists every defined preset. Pick the Web
 
 For the first export, pick an **empty folder outside the Godot project**. A
 successful export writes a verified `.godot-mini-game-export.json` ownership
-manifest. Later exports may reuse that managed folder; an unrelated non-empty
-folder, a modified managed artifact, or unlisted content inside an exporter-owned
-directory is rejected instead of being adopted or overwritten. Unrelated files
-under other top-level names are preserved.
+manifest. Later exports may reuse that managed folder, so re-exporting to the
+same directory just works. Because the manifest declares which paths the
+exporter owns rather than locking their bytes, a managed file rewritten by
+external tooling (for example the WeChat DevTools editing `project.config.json`
+or `project.private.config.json`) is still treated as owned and replaced by the
+latest artifact; such drift is only noted as "externally modified" in the log.
+An unrelated non-empty folder without a valid manifest, or unlisted content
+inside an exporter-owned directory (`audio/`, `engine/`, `images/`, `js/`,
+`subpacks/`), is rejected instead of being adopted. Unrelated files under other
+top-level names are preserved.
 
 #### Persistent export settings (`.minigame/export.cfg`)
 

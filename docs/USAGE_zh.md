@@ -128,8 +128,12 @@ Dock 自动扫描 `export_presets.cfg` 里的所有预设，选择第 3 步创�
 
 第一次导出请选择 Godot 项目之外的**空目录**。成功后插件会写入
 经过完整校验的 `.godot-mini-game-export.json` 所有权 manifest；以后可继续复用这个
-受管目录。无有效 manifest 的非空目录、被修改的受管产物，或受管目录内未列出的
-内容都会被拒绝，不会被自动接管或覆盖。其它顶层名称下的旁路文件会保留。
+受管目录，**直接重复导出即可**。只要 manifest 合法，即便受管产物被外部工具改写
+（例如微信开发者工具自动重写 `project.config.json` / `project.private.config.json`），
+插件仍会把这些受管路径当作「自己的」并整体覆盖为最新产物——这类漂移只会在日志里
+标记为「外部改动」。无有效 manifest 的非空目录、或受管目录（`audio/`、`engine/`、
+`images/`、`js/`、`subpacks/`）内出现未列出的内容，才会被拒绝。其它顶层名称下的
+旁路文件会保留。
 
 #### 持久化导出设置（`.minigame/export.cfg`）
 

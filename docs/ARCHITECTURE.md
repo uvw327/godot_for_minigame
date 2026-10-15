@@ -34,6 +34,9 @@ OutputGuard  engine pack   PlatformRuntime + GodotSDK bridge
   and WASM can no longer be selected from different directories.
 - `core/output_guard.gd` canonicalizes paths, keeps output outside the project,
   and only accepts an empty directory or one with a valid ownership manifest.
+  Managed-file drift (external edits such as the WeChat DevTools rewriting
+  `project.config.json`) is recorded as a `dirty` state that still authorizes
+  replacement, so repeat exports survive third-party writes.
 - `core/persistence.gd` persists the dock's last-used settings in
   `.minigame/export.cfg` and re-validates the output directory on load; a
   sibling `.gdignore` keeps the file out of exported games.
