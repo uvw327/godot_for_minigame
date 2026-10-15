@@ -54,8 +54,8 @@ const KEY_TIMEOUT := "timeout_seconds"
 ## Defaults mirror `export_dock.tscn` / `export_dock.gd` so a fresh project
 ## behaves exactly as it did before persistence existed.
 const DEFAULT_TIMEOUT_SECONDS := 600.0
-const SUPPORTED_PLATFORMS := PackedStringArray(["wechat", "douyin", "tiktok"])
-const SUPPORTED_ORIENTATIONS := PackedStringArray(["portrait", "landscape"])
+const SUPPORTED_PLATFORMS: PackedStringArray = ["wechat", "douyin", "tiktok"]
+const SUPPORTED_ORIENTATIONS: PackedStringArray = ["portrait", "landscape"]
 
 
 ## Reads and normalizes the persisted state. The returned dictionary always
@@ -190,9 +190,9 @@ static func ensure_project_files() -> void:
 		if example:
 			example.store_string(
 				"; Godot Mini Game export configuration example\n"
-				"; Copy to `.minigame/export.cfg` to persist dock settings.\n\n"
-				"[export]\n"
-				"platform=\"\"\nappid=\"\"\norientation=\"\"\npreset=\"\"\noutput_dir=\"\"\ntimeout_seconds=600.0\n"
+				+ "; Copy to `.minigame/export.cfg` to persist dock settings.\n\n"
+				+ "[export]\n"
+				+ "platform=\"\"\nappid=\"\"\norientation=\"\"\npreset=\"\"\noutput_dir=\"\"\ntimeout_seconds=600.0\n"
 			)
 			example.close()
 
@@ -252,7 +252,8 @@ static func _is_known_orientation(value: Variant) -> bool:
 
 
 static func _set_value(cfg: ConfigFile, key: String, value: Variant) -> Error:
-	return cfg.set_value(SECTION, key, value)
+	cfg.set_value(SECTION, key, value)
+	return OK
 
 
 ## Path helpers ────────────────────────────────────────────────────────

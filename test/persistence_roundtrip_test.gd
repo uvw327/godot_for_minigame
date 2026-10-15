@@ -56,6 +56,13 @@ func _init() -> void:
 
 
 func _run() -> void:
+	# A real `--export-pack` run (see exporter_smoke_test) briefly loads the
+	# editor, whose export dock writes the default state to the live
+	# res://.minigame/export.cfg on `_exit_tree`. Snapshot the real file so we
+	# can assert our overridden writes leave it byte-for-byte untouched, rather
+	# than assuming it never exists in the first place.
+	var real_cfg_present_before := FileAccess.file_exists(Persistence.CONFIG_FILE)
+	var real_cfg_content_before := _read_cfg(Persistence.CONFIG_FILE)
 	DirAccess.make_dir_recursive_absolute(_root)
 	_config_dir = _root.path_join("minigame-config")
 	_config_file = _config_dir.path_join("export.cfg")
@@ -197,9 +204,15 @@ func _run() -> void:
 	_assert_true(on_disk.contains('platform="tiktok"'), "saved cfg must contain the platform value")
 	_assert_true(on_disk.contains('appid="tt-key"'), "saved cfg must contain the appid value")
 	_assert_true(on_disk.contains('timeout_seconds=300'), "saved cfg must contain the timeout value")
-	_assert_true(
-		not FileAccess.file_exists(Persistence.CONFIG_FILE),
+	_assert_eq(
+		FileAccess.file_exists(Persistence.CONFIG_FILE),
+		real_cfg_present_before,
 		"the real res://.minigame/export.cfg must remain untouched when overridden",
+	)
+	_assert_eq(
+		_read_cfg(Persistence.CONFIG_FILE),
+		real_cfg_content_before,
+		"the real res://.minigame/export.cfg must keep its contents when overridden",
 	)
 
 	# Restore the default paths so any later code in this process is not
