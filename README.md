@@ -141,7 +141,9 @@ standard Web export templates do not need to be downloaded.
 
 Open the **Mini Game Export** Dock, then select one platform, enter the App ID,
 or TikTok Client Key, choose an orientation, Web preset, and dedicated output directory, and click
-**Export**. Open the result in the matching platform DevTools.
+**Export**. Open the result in the matching platform DevTools. The dock saves
+these fields to `.minigame/export.cfg` and restores them on the next editor
+session (see the [usage guide](docs/USAGE.md)).
 
 ## SDK in 60 seconds
 

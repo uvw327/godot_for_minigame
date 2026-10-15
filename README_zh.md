@@ -134,6 +134,7 @@ cp -R godot_for_minigame/addons/godot_mini_game your_project/addons/godot_mini_g
 
 打开 **Mini Game Export** Dock，选择一个平台，输入 App ID 或 TikTok Client Key，选择屏幕方向、Web
 preset 和专用输出目录，然后点击 **Export**。再用对应的平台开发者工具打开结果。
+Dock 会把上述字段保存到 `.minigame/export.cfg`，下次打开编辑器自动恢复（见[使用指南](docs/USAGE_zh.md)）。
 
 ## 60 秒上手 SDK
 
