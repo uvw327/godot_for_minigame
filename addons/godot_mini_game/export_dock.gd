@@ -18,6 +18,9 @@ const ORIENTATION_OPTIONS := [
 	["竖屏 (portrait)", "portrait"],
 	["横屏 (landscape)", "landscape"],
 ]
+## 日志区域右键菜单的条目 id。
+const LOG_MENU_COPY_ALL := 0
+const LOG_MENU_CLEAR := 1
 
 @onready var platform_option: OptionButton = $PlatformOption
 @onready var appid_input: LineEdit = $AppIdInput
@@ -36,6 +39,8 @@ const ORIENTATION_OPTIONS := [
 @onready var template_file_dialog: FileDialog = $TemplateFileDialog
 
 var _active_exporter: RefCounted
+## 日志区域的右键菜单（全部复制 / 清空），在 _ready 中创建。
+var _log_menu: PopupMenu
 
 
 func _ready() -> void:
@@ -65,6 +70,7 @@ func _ready() -> void:
 	# until they restarted the editor.
 	refresh_btn.pressed.connect(_refresh_all)
 	template_file_dialog.file_selected.connect(_on_template_file_selected)
+	_setup_log_context_menu()
 
 	_log("[b]小游戏导出插件已就绪[/b]")
 	if not Persistence.load_error.is_empty():
@@ -332,3 +338,36 @@ func _show_toast(title: String, message: String) -> void:
 func _log(msg: String) -> void:
 	if status_label:
 		status_label.append_text(msg + "\n")
+
+
+## 为日志区域挂一个右键上下文菜单。RichTextLabel 没有内置的右键菜单，
+## 这里手动创建一个 PopupMenu：「全部复制」把日志当前显示的纯文本写入系统
+## 剪贴板，「清空」删除已累积的旧日志。
+func _setup_log_context_menu() -> void:
+	_log_menu = PopupMenu.new()
+	_log_menu.add_item("全部复制", LOG_MENU_COPY_ALL)
+	_log_menu.add_item("清空", LOG_MENU_CLEAR)
+	_log_menu.id_pressed.connect(_on_log_menu_id_pressed)
+	add_child(_log_menu)
+	status_label.gui_input.connect(_on_status_label_gui_input)
+
+
+func _on_status_label_gui_input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.pressed
+		and event.button_index == MOUSE_BUTTON_RIGHT
+	):
+		_log_menu.position = Vector2i(event.global_position)
+		_log_menu.popup()
+		# 右键已由菜单消费，避免日志区继续处理这次点击。
+		status_label.accept_event()
+
+
+func _on_log_menu_id_pressed(id: int) -> void:
+	match id:
+		LOG_MENU_COPY_ALL:
+			# 复制用户实际看到的文本：get_parsed_text 会剥离 BBCode 颜色等标签。
+			DisplayServer.clipboard_set(status_label.get_parsed_text())
+		LOG_MENU_CLEAR:
+			status_label.clear()
